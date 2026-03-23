@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
+import ApplyButton from '@/components/ApplyButton'
+import AssignMemberForm from '@/components/AssignMemberForm'
+import ManageApplications from '@/components/ManageApplications'
 import { Profile, RELEASE_STATUS_LABELS, RELEASE_STATUS_COLORS } from '@/lib/types'
 
 export default async function ReleasePage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +29,31 @@ export default async function ReleasePage({ params }: { params: Promise<{ id: st
     .eq('release_id', id)
     .order('assigned_date')
 
+  // Проверяем, состоит ли пользователь уже в этом релизе
+  const alreadyMember = members?.some((m: any) => m.user_id === user.id)
+
+  // Проверяем, подавал ли уже заявку
+  const { data: existingApp } = await supabase
+    .from('applications')
+    .select('id')
+    .eq('release_id', id)
+    .eq('user_id', user.id)
+    .eq('status', 'new')
+    .maybeSingle()
+
+  const isCurator = profile?.user_role === 'curator' || profile?.user_role === 'admin'
+
+  // Заявки (для кураторов)
+  let applications: any[] = []
+  if (isCurator) {
+    const { data } = await supabase
+      .from('applications')
+      .select('*, user:profiles!user_id(nickname, id)')
+      .eq('release_id', id)
+      .eq('status', 'new')
+    applications = data || []
+  }
+
   return (
     <div className="min-h-screen">
       <Navbar profile={profile!} />
@@ -37,7 +65,7 @@ export default async function ReleasePage({ params }: { params: Promise<{ id: st
             <div>
               <h1 className="text-2xl font-bold mb-1">{release.title}</h1>
               <p className="text-gray-400 text-sm">
-                {release.type} · Куратор: {release.curator ? (
+                {release.type} · {release.department || ''} · Куратор: {release.curator ? (
                   <Link href={`/members/${release.curator.id}`} className="text-indigo-400 hover:text-indigo-300">{release.curator.nickname}</Link>
                 ) : '—'}
               </p>
@@ -56,7 +84,8 @@ export default async function ReleasePage({ params }: { params: Promise<{ id: st
           <p className="text-sm text-gray-400">{release.current_episode} / {release.episode_count} эпизодов</p>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        {/* Команда */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">👥 Команда</h2>
           {(!members || members.length === 0) ? (
             <p className="text-gray-500">Команда пока не набрана</p>
@@ -86,7 +115,26 @@ export default async function ReleasePage({ params }: { params: Promise<{ id: st
               ))}
             </div>
           )}
+
+          {/* Кнопка назначения — для кураторов */}
+          {isCurator && <AssignMemberForm releaseId={id} />}
         </div>
+
+        {/* Кнопка заявки — для обычных участников */}
+        {release.status === 'recruiting' && !alreadyMember && !existingApp && !isCurator && (
+          <div className="mb-6">
+            <ApplyButton releaseId={id} />
+          </div>
+        )}
+
+        {existingApp && !alreadyMember && (
+          <div className="bg-blue-950/30 border border-blue-900/50 rounded-xl p-4 mb-6 text-center">
+            <p className="text-blue-400">📩 Твоя заявка на рассмотрении</p>
+          </div>
+        )}
+
+        {/* Заявки — для кураторов */}
+        {isCurator && <ManageApplications applications={applications} />}
       </main>
     </div>
   )
