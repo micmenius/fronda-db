@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
-import { Profile, PrivateNote, STATUS_LABELS, STATUS_COLORS, WORKLOAD_LABELS, WORKLOAD_COLORS } from '@/lib/types'
+import AddNoteForm from '@/components/AddNoteForm'
+import { Profile, STATUS_LABELS, STATUS_COLORS, WORKLOAD_LABELS, WORKLOAD_COLORS } from '@/lib/types'
 
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -108,7 +109,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
                     : rm.status === 'dropped' ? 'bg-red-900/50 text-red-400'
                     : 'bg-gray-800 text-gray-400'
                   }`}>
-                    {rm.status === 'completed' ? '✅' : rm.status === 'dropped' ? '❌' : rm.status === 'in_progress' ? '🟢' : '🟡'} {rm.status}
+                    {rm.status === 'completed' ? '✅ Завершён' : rm.status === 'dropped' ? '❌ Дропнул' : rm.status === 'in_progress' ? '🟢 В работе' : '🟡 Назначен'}
                   </span>
                 </Link>
               ))}
@@ -116,6 +117,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           )}
         </div>
 
+        {/* Приватные заметки */}
         {(myProfile?.user_role === 'curator' || myProfile?.user_role === 'admin') && (
           <div className="bg-red-950/30 border border-red-900/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4 text-red-300">🔒 Заметки руководства</h2>
@@ -140,6 +142,10 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
                   </div>
                 ))}
               </div>
+            )}
+
+            {myProfile?.user_role === 'admin' && (
+              <AddNoteForm aboutUserId={id} />
             )}
           </div>
         )}
